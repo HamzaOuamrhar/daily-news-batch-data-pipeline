@@ -4,15 +4,15 @@
 AIRFLOW_IMAGE_NAME=apache/airflow:3.0.2
 
 ## PostgreSQL credentials
-POSTGRES_USER=airflow
-POSTGRES_PASSWORD=airflow
+POSTGRES_USER=airflow <br>
+POSTGRES_PASSWORD=airflow <br>
 POSTGRES_DB=airflow
 
 ## Local project directory (used to mount dags/, logs/, config/, plugins/)
 AIRFLOW_PROJ_DIR=.
 
 ## Optional: Airflow Web UI credentials
-_AIRFLOW_WWW_USER_USERNAME=airflow
+_AIRFLOW_WWW_USER_USERNAME=airflow <br>
 _AIRFLOW_WWW_USER_PASSWORD=airflow
 
 ## Optional: Additional Python packages to install

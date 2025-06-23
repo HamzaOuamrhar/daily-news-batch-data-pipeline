@@ -1,7 +1,8 @@
 .env
 test.txt
 plan.txt
+cmds.txt
 config/
-dags/
 logs/
 plugins/
+dags/__pycache__

@@ -44,6 +44,8 @@ services:
   airflow-apiserver:
     <<: *airflow-common
     command: api-server
+    env_file:
+      - config/news.env
     ports:
       - "8080:8080"
     healthcheck:
@@ -61,6 +63,8 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    env_file:
+      - config/news.env
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
@@ -76,6 +80,8 @@ services:
   airflow-dag-processor:
     <<: *airflow-common
     command: dag-processor
+    env_file:
+      - config/news.env
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
       interval: 30s
