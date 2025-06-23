@@ -1,0 +1,7 @@
+.env
+test.txt
+plan.txt
+config/
+dags/
+logs/
+plugins/
