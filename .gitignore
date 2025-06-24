@@ -1,8 +1,9 @@
 .env
-test.txt
+test.py
 plan.txt
 cmds.txt
 config/
 logs/
 plugins/
 dags/__pycache__
+architecture.tldr

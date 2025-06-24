@@ -5,6 +5,7 @@ import requests
 import os
 import json
 from dotenv import load_dotenv
+from confluent_kafka import Producer
 
 default_args = {
     'owner': 'hamza',
@@ -44,10 +45,27 @@ def fetch_news():
         json.dump(news_data, f, indent=4)
     print(f"Saved news data to {output_path}")
 
+
+
+def produce_to_kafka():
+    kafka_conf = {
+        'bootstrap.servers': 'kafka:9092'
+    }
+    producer = Producer(kafka_conf)
+    topic = 'news-topic'
+
+    with open('logs/news.json') as f:
+        data = json.load(f)
+
+    for article in data.get("articles", []):
+        producer.produce(topic, json.dumps(article).encode('utf-8'))
+        producer.poll(0)
+    producer.flush()
+
 with DAG(
-    'fetch_newsapi_data',
+    'fetch-and-produce-news',
     default_args=default_args,
-    description='Fetch news from NewsAPI and save to file',
+    description='Fetch news from NewsAPI and save to file then produce to kafka',
     schedule='@daily',
     start_date=datetime(2025, 6, 23),
     catchup=False,
@@ -57,3 +75,10 @@ with DAG(
         task_id='fetch_news',
         python_callable=fetch_news
     )
+
+    task_produce_news = PythonOperator(
+        task_id='produce_to_kafka',
+        python_callable=produce_to_kafka
+    )
+
+    task_fetch_news >> task_produce_news

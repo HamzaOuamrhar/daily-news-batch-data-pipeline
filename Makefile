@@ -12,6 +12,8 @@ clean:
 	docker compose down --rmi all
 	docker volume rm $$(docker volume ls -q)
 
-exec:
+airflow:
 	docker exec -it project2-airflow-apiserver-1 bash
 
+kafka:
+	docker exec -it kafka bash
