@@ -1,6 +1,8 @@
 x-airflow-common:
   &airflow-common
   image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.2}
+  group_add:
+    - 1001
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -13,11 +15,13 @@ x-airflow-common:
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+    API_KEY: ${API_KEY}
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - /var/run/docker.sock:/var/run/docker.sock
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -27,6 +31,7 @@ x-airflow-common:
 services:
   postgres:
     image: postgres:13
+    container_name: postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -44,8 +49,7 @@ services:
   airflow-apiserver:
     <<: *airflow-common
     command: api-server
-    env_file:
-      - config/news.env
+    container_name: api-server
     ports:
       - "8080:8080"
     healthcheck:
@@ -63,8 +67,7 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
-    env_file:
-      - config/news.env
+    container_name: airflow-scheduler
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
@@ -80,8 +83,7 @@ services:
   airflow-dag-processor:
     <<: *airflow-common
     command: dag-processor
-    env_file:
-      - config/news.env
+    container_name: airflow-dag-processor
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
       interval: 30s
@@ -98,6 +100,7 @@ services:
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
+    container_name: airflow-init
     command:
       - -c
       - |
@@ -187,6 +190,7 @@ services:
 
   airflow-cli:
     <<: *airflow-common
+    container_name: airflow-cli
     profiles:
       - debug
     environment:
@@ -232,7 +236,46 @@ services:
     depends_on:
       - kafka
 
+  spark-master:
+    image: bitnami/spark:3.5.1
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_EXTRA_PACKAGES=org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1
+      - PG_URL=${PG_URL}
+      - PG_USER=${PG_USER}
+      - PG_PASSWORD=${PG_PASSWORD}
+      - PG_TABLE=${PG_TABLE}
+    ports:
+      - "7077:7077"
+      - "8081:8080"
+    volumes:
+      - ./spark:/opt/spark-apps
 
+
+  spark-worker:
+    image: bitnami/spark:3.5.1
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_EXTRA_PACKAGES=org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1
+      - PG_URL=${PG_URL}
+      - PG_USER=${PG_USER}
+      - PG_PASSWORD=${PG_PASSWORD}
+      - PG_TABLE=${PG_TABLE}
+    depends_on:
+      - spark-master
+    ports:
+      - "8082:8081"
+    volumes:
+      - ./spark:/opt/spark-apps
 
 
 volumes:

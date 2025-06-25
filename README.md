@@ -93,3 +93,20 @@ kafka-consumer-groups --bootstrap-server $BROKER \
   --group my-consumer-group \
   --topic my-topic \
   --reset-offsets --to-earliest --execute
+
+# Spark commands
+
+## Check Spark version
+spark-submit --version
+
+## Run a PySpark script
+spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1 /opt/spark-apps/kafka_consumer.py
+
+# psql commands for postgres
+
+\l => List all databases
+\c <dbname> => Connect to a database
+\du => List all users/roles
+\dt => List tables in the current database
+\d <tablename> => Describe table structure
+\q => Quit psql shell

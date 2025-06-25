@@ -13,7 +13,15 @@ clean:
 	docker volume rm $$(docker volume ls -q)
 
 airflow:
-	docker exec -it project2-airflow-apiserver-1 bash
+	docker exec -it api-server bash
 
 kafka:
 	docker exec -it kafka bash
+
+spark:
+	docker exec -it spark-master bash
+
+psql:
+	docker exec -it postgres bash
+
+.PHONY: all re down clean airflow kafka spark psql

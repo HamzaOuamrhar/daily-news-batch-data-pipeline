@@ -1,11 +1,13 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.docker.operators.docker import DockerOperator
 from datetime import datetime, timedelta
 import requests
 import os
 import json
 from dotenv import load_dotenv
 from confluent_kafka import Producer
+from airflow.operators.bash import BashOperator
 
 default_args = {
     'owner': 'hamza',
@@ -15,13 +17,9 @@ default_args = {
 }
 
 def fetch_news():
-    env_path = 'config/news.env'
     print("fetch news started")
-    if not os.path.exists(env_path):
-        raise FileNotFoundError(f"{env_path} does not exist")
-    load_dotenv(env_path)
 
-    api_key = os.getenv('API_KEY')
+    api_key = os.environ['API_KEY']
     print(api_key)
 
     if not api_key:
@@ -32,6 +30,7 @@ def fetch_news():
         'country': 'us',
         'apiKey': api_key,
         'pageSize': 100,
+        'category': 'business'
     }
 
     response = requests.get(url, params=params)
@@ -81,4 +80,9 @@ with DAG(
         python_callable=produce_to_kafka
     )
 
-    task_fetch_news >> task_produce_news
+    task_spark_batch = BashOperator(
+        task_id='spark_kafka_to_postgres',
+        bash_command='docker exec spark-master spark-submit --packages org.postgresql:postgresql:42.7.3,org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1 /opt/spark-apps/kafka_batch_to_postgres.py'
+    )
+
+    task_fetch_news >> task_produce_news >> task_spark_batch
