@@ -277,7 +277,19 @@ services:
     volumes:
       - ./spark:/opt/spark-apps
 
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: always
+
 
 volumes:
   postgres-db-volume:
   kafka_data:
+  grafana_data:

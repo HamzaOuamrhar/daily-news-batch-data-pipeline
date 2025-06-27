@@ -104,9 +104,9 @@ spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apa
 
 # psql commands for postgres
 
-\l => List all databases
-\c <dbname> => Connect to a database
-\du => List all users/roles
-\dt => List tables in the current database
-\d <tablename> => Describe table structure
+\l => List all databases <br>
+\c <dbname> => Connect to a database <br>
+\du => List all users/roles <br>
+\dt => List tables in the current database <br>
+\d <tablename> => Describe table structure <br>
 \q => Quit psql shell
