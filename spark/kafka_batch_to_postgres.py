@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col, explode, udf, concat_ws, trim
+from pyspark.sql.functions import from_json, col, explode, udf, concat_ws, trim, lower, to_date
 from pyspark.sql.types import StructType, StringType, ArrayType, StructType, StructField
 import os
 import spacy
@@ -56,12 +56,12 @@ parsed_df = parsed_df.withColumn("full_text", concat_ws(" ", col("title"), col("
 entities_df = parsed_df.withColumn("entities", extract_entities_udf(col("full_text")))
 
 flattened_entities_df = entities_df.select(
-    col("publishedAt"),
+    to_date(col("publishedAt")).alias("published_date"),
     explode(col("entities")).alias("entity_struct")
 ).select(
-    col("entity_struct.entity").alias("entity_text"),
+    lower(col("entity_struct.entity")).alias("entity_text"),
     col("entity_struct.type").alias("entity_type"),
-    col("publishedAt")
+    col("published_date")
 )
 
 flattened_entities_df.write \
