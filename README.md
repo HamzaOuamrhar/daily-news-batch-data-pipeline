@@ -1,27 +1,42 @@
+# Building a Daily News Analytics Pipeline with Airflow, Kafka, Spark, and Grafana
+In this project, I built a batch data engineering pipeline to analyze daily news articles and uncover trending entities using Named Entity Recognition (NER). Each day, I use Airflow to orchestrate a workflow that pulls news data from the News API and stores it in Kafka. From there, a Spark batch job cleans the data and extracts entities like people, organizations, and locations, which are then saved in a Postgres database. Finally, Grafana visualizes trends over time. This project showcases how batch processing and modern data tools can be combined to deliver valuable insights from external data sources on a regular schedule.
+
+## Read the Full Project Story
+For a detailed walkthrough of this project, including architecture, tools, challenges, and learnings, check out my [Medium article here](https://medium.com/@houamrha/building-a-daily-news-analytics-pipeline-with-airflow-kafka-spark-and-grafana-333015e7ada9).
+
+# Project Architecture
+![Project Architecture](architecture.png)
+
 # .env example
 
-## Image version for Airflow
-AIRFLOW_IMAGE_NAME=apache/airflow:3.0.2
+AIRFLOW_UID=1000
 
-## PostgreSQL credentials
+API_KEY=fffffffffffffffffffffffffff
+
+AIRFLOW_PROJ_DIR=.
+
+_AIRFLOW_WWW_USER_USERNAME=airflow <br>
+_AIRFLOW_WWW_USER_PASSWORD=airflow <br>
+_PIP_ADDITIONAL_REQUIREMENTS=confluent-kafka
+
+### For spark job
+PG_URL=jdbc:postgresql://postgres:5432/news <br>
+PG_USER=spark <br>
+PG_PASSWORD=spark <br>
+PG_TABLE=trending_entities <br>
+PG_DATABASE=news
+
+### Airflow database
 POSTGRES_USER=airflow <br>
 POSTGRES_PASSWORD=airflow <br>
 POSTGRES_DB=airflow
 
-## Local project directory (used to mount dags/, logs/, config/, plugins/)
-AIRFLOW_PROJ_DIR=.
-
-## Optional: Airflow Web UI credentials
-_AIRFLOW_WWW_USER_USERNAME=airflow <br>
-_AIRFLOW_WWW_USER_PASSWORD=airflow
-
-## Optional: Additional Python packages to install
-_PIP_ADDITIONAL_REQUIREMENTS=
-
-## UID to avoid permission issues (especially on Linux)
-AIRFLOW_UID=50000
-
-
+### Grafana
+ADMIN_USERNAME=admin <br>
+ADMIN_FIRSTNAME=admin <br>
+ADMIN_LASTNAME=admin <br>
+ADMIN_EMAIL=admin@example.com <br>
+ADMIN_PASSWORD=admin
 
 # Useful Kafka commands
 
