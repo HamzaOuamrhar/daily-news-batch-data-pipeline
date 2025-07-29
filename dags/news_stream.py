@@ -8,6 +8,8 @@ import json
 from dotenv import load_dotenv
 from confluent_kafka import Producer
 from airflow.operators.bash import BashOperator
+import pandas as pd
+import psycopg2
 
 default_args = {
     'owner': 'hamza',
@@ -29,7 +31,7 @@ def fetch_news():
     params = {
         'country': 'us',
         'apiKey': api_key,
-        'pageSize': 100,
+        'pageSize': 10,
         'category': 'business'
     }
 
@@ -44,6 +46,30 @@ def fetch_news():
         json.dump(news_data, f, indent=4)
     print(f"Saved news data to {output_path}")
 
+
+def create_dataset():
+    pg_user = os.environ['PG_USER']
+    pg_password = os.environ['PG_PASSWORD']
+    pg_database = os.environ['PG_DATABASE']
+    pg_url = "postgresql://" + pg_user + ":" + pg_password + "@" + "postgres:5432/" + pg_database
+    
+    output_csv = "/opt/airflow/logs/entity_daily_counts.csv"
+
+    conn = psycopg2.connect(pg_url)
+    query = """
+    SELECT
+        entity_text,
+        DATE(published_date) AS published_date,
+        COUNT(*) AS count_mentions
+    FROM trending_entities
+    GROUP BY entity_text, DATE(published_date)
+    ORDER BY published_date, entity_text;
+    """
+
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+
+    df.to_csv(output_csv, index=False)
 
 
 def produce_to_kafka():
@@ -85,4 +111,9 @@ with DAG(
         bash_command='docker exec spark-master spark-submit --packages org.postgresql:postgresql:42.7.3,org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1 /opt/spark-apps/kafka_batch_to_postgres.py'
     )
 
-    task_fetch_news >> task_produce_news >> task_spark_batch
+    task_create_dataset = PythonOperator(
+        task_id='create_dataset',
+        python_callable=create_dataset
+    )
+
+    task_fetch_news >> task_produce_news >> task_spark_batch >> task_create_dataset

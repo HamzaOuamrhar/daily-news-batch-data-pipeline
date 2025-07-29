@@ -24,4 +24,7 @@ spark:
 psql:
 	docker exec -it postgres bash
 
+build:
+	docker compose up -d --build
+
 .PHONY: all re down clean airflow kafka spark psql
