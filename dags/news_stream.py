@@ -31,8 +31,8 @@ def fetch_news():
     params = {
         'country': 'us',
         'apiKey': api_key,
-        'pageSize': 10,
-        'category': 'business'
+        'pageSize': 100,
+        # 'category': 'business'
     }
 
     response = requests.get(url, params=params)
@@ -48,7 +48,7 @@ def fetch_news():
 
 
 def create_dataset():
-    pg_user = os.environ['PG_USER']
+    pg_user = os.environ['PG_USER'] 
     pg_password = os.environ['PG_PASSWORD']
     pg_database = os.environ['PG_DATABASE']
     pg_url = "postgresql://" + pg_user + ":" + pg_password + "@" + "postgres:5432/" + pg_database
@@ -56,14 +56,34 @@ def create_dataset():
     output_csv = "/opt/airflow/logs/entity_daily_counts.csv"
 
     conn = psycopg2.connect(pg_url)
-    query = """
-    SELECT
-        entity_text,
-        DATE(published_date) AS published_date,
-        COUNT(*) AS count_mentions
-    FROM trending_entities
-    GROUP BY entity_text, DATE(published_date)
-    ORDER BY published_date, entity_text;
+    query = r"""
+        WITH entities AS (
+            SELECT DISTINCT entity_text FROM trending_entities WHERE entity_type in ('EVENT', 'FAC', 'GPE', 'LOC', 'ORG', 'PERSON', 'PRODUCT', 'WORK_OF_ART')
+        ),
+        date_range AS (
+            SELECT the_date::date AS published_date
+            FROM dates
+            WHERE the_date >= '2025-07-20'
+        ),
+        grid AS (
+            SELECT e.entity_text, d.published_date
+            FROM entities e CROSS JOIN date_range d
+        ),
+        counts AS (
+            SELECT entity_text, DATE(published_date) AS published_date, COUNT(*) AS count_mentions
+            FROM trending_entities
+            WHERE published_date >= '2025-07-20'
+            AND entity_type in ('EVENT', 'FAC', 'GPE', 'LOC', 'ORG', 'PERSON', 'PRODUCT', 'WORK_OF_ART')
+            GROUP BY entity_text, DATE(published_date)
+        )
+        SELECT 
+            g.entity_text,
+            g.published_date,
+            COALESCE(c.count_mentions, 0) AS count_mentions
+        FROM grid g
+        LEFT JOIN counts c
+            ON g.entity_text = c.entity_text AND g.published_date = c.published_date
+        ORDER BY g.entity_text, g.published_date
     """
 
     df = pd.read_sql_query(query, conn)
