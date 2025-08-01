@@ -12,6 +12,9 @@ clean:
 	docker compose down --rmi all
 	docker volume rm $$(docker volume ls -q)
 
+super_clean: clean
+	docker system prune -a
+
 airflow:
 	docker exec -it api-server bash
 

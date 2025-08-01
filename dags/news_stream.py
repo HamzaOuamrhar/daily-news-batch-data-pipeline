@@ -10,6 +10,8 @@ from confluent_kafka import Producer
 from airflow.operators.bash import BashOperator
 import pandas as pd
 import psycopg2
+from sqlalchemy import create_engine
+
 
 default_args = {
     'owner': 'hamza',
@@ -51,11 +53,14 @@ def create_dataset():
     pg_user = os.environ['PG_USER'] 
     pg_password = os.environ['PG_PASSWORD']
     pg_database = os.environ['PG_DATABASE']
-    pg_url = "postgresql://" + pg_user + ":" + pg_password + "@" + "postgres:5432/" + pg_database
+    # pg_url = "postgresql://" + pg_user + ":" + pg_password + "@" + "postgres:5432/" + pg_database
     
     output_csv = "/opt/airflow/logs/entity_daily_counts.csv"
 
-    conn = psycopg2.connect(pg_url)
+    pg_url = f"postgresql+psycopg2://{pg_user}:{pg_password}@postgres:5432/{pg_database}"
+    engine = create_engine(pg_url)
+
+    # conn = psycopg2.connect(pg_url)
     query = r"""
         WITH entities AS (
             SELECT DISTINCT entity_text FROM trending_entities WHERE entity_type in ('EVENT', 'FAC', 'GPE', 'LOC', 'ORG', 'PERSON', 'PRODUCT', 'WORK_OF_ART')
@@ -86,8 +91,11 @@ def create_dataset():
         ORDER BY g.entity_text, g.published_date
     """
 
-    df = pd.read_sql_query(query, conn)
-    conn.close()
+    # df = pd.read_sql_query(query, conn)
+
+    df = pd.read_sql(query, engine)
+
+    # conn.close()
 
     df.to_csv(output_csv, index=False)
 
@@ -107,6 +115,25 @@ def produce_to_kafka():
         producer.poll(0)
     producer.flush()
 
+def backup_news():
+        
+    with open('logs/news.json', 'r') as f:
+        daily_data = json.load(f)
+
+    if os.path.exists('logs/news-backup.json'):
+        with open('logs/news-backup.json', 'r') as f:
+            backup_data = json.load(f)
+    else:
+        backup_data = []
+
+
+    daily_news = daily_data.get('articles', [])
+
+    backup_data.extend(daily_news)
+
+    with open('logs/news-backup.json', 'w') as f:
+        json.dump(backup_data, f, indent=4)
+
 with DAG(
     'fetch-and-produce-news',
     default_args=default_args,
@@ -119,6 +146,11 @@ with DAG(
     task_fetch_news = PythonOperator(
         task_id='fetch_news',
         python_callable=fetch_news
+    )
+
+    task_backup_news = PythonOperator(
+        task_id='backup_news',
+        python_callable=backup_news
     )
 
     task_produce_news = PythonOperator(
@@ -136,4 +168,4 @@ with DAG(
         python_callable=create_dataset
     )
 
-    task_fetch_news >> task_produce_news >> task_spark_batch >> task_create_dataset
+    task_fetch_news >> task_backup_news >> task_produce_news >> task_spark_batch >> task_create_dataset
