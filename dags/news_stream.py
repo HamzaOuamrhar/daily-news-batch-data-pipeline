@@ -34,7 +34,6 @@ def fetch_news():
         'country': 'us',
         'apiKey': api_key,
         'pageSize': 100,
-        # 'category': 'business'
     }
 
     response = requests.get(url, params=params)
@@ -53,14 +52,12 @@ def create_dataset():
     pg_user = os.environ['PG_USER'] 
     pg_password = os.environ['PG_PASSWORD']
     pg_database = os.environ['PG_DATABASE']
-    # pg_url = "postgresql://" + pg_user + ":" + pg_password + "@" + "postgres:5432/" + pg_database
     
     output_csv = "/opt/airflow/logs/entity_daily_counts.csv"
 
     pg_url = f"postgresql+psycopg2://{pg_user}:{pg_password}@postgres:5432/{pg_database}"
     engine = create_engine(pg_url)
 
-    # conn = psycopg2.connect(pg_url)
     query = r"""
         WITH entities AS (
             SELECT DISTINCT entity_text FROM trending_entities WHERE entity_type in ('EVENT', 'FAC', 'GPE', 'LOC', 'ORG', 'PERSON', 'PRODUCT', 'WORK_OF_ART')
@@ -91,11 +88,7 @@ def create_dataset():
         ORDER BY g.entity_text, g.published_date
     """
 
-    # df = pd.read_sql_query(query, conn)
-
     df = pd.read_sql(query, engine)
-
-    # conn.close()
 
     df.to_csv(output_csv, index=False)
 

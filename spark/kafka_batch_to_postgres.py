@@ -50,8 +50,9 @@ parsed_df = news_df.select(from_json(col("json_str"), news_schema).alias("data")
 
 parsed_df = parsed_df.withColumn("title", trim(col("title")))
 parsed_df = parsed_df.withColumn("description", trim(col("description")))
+parsed_df = parsed_df.withColumn("content", trim(col("content")))
 
-parsed_df = parsed_df.withColumn("full_text", concat_ws(" ", col("title"), col("description")))
+parsed_df = parsed_df.withColumn("full_text", concat_ws(" ", col("title"), col("description"), col('content')))
 
 entities_df = parsed_df.withColumn("entities", extract_entities_udf(col("full_text")))
 
