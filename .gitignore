@@ -4,6 +4,7 @@ plan.txt
 cmds.txt
 config/
 logs/
-plugins/
+plugins/__pycache__
 dags/__pycache__
 architecture.tldr
+todo
