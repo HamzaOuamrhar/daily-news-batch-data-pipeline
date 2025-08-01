@@ -74,4 +74,20 @@ flattened_entities_df.write \
     .mode("append") \
     .save()
 
+dates_df = entities_df.select(to_date(col("publishedAt")).alias("the_date")).distinct()
+
+try:
+    dates_df.write \
+        .format("jdbc") \
+        .option("url", pg_url) \
+        .option("dbtable", "dates") \
+        .option("user", pg_user) \
+        .option("password", pg_password) \
+        .option("driver", "org.postgresql.Driver") \
+        .mode("append") \
+        .save()
+except Exception as e:
+    if "duplicate key" not in str(e).lower():
+        raise e
+
 spark.stop()

@@ -38,6 +38,26 @@ ADMIN_LASTNAME=admin <br>
 ADMIN_EMAIL=admin@example.com <br>
 ADMIN_PASSWORD=admin
 
+# Setup Instructions
+
+## 1. Start the containers
+```bash
+Make
+```
+
+## 2. Create the dates table manually
+Before running Airflow DAGs, connect to PostgreSQL and create the required dates table:
+
+```sql
+-- Create the dates table with PRIMARY KEY to prevent duplicates
+CREATE TABLE dates (
+    the_date DATE PRIMARY KEY
+);
+```
+
+## 3. Run Airflow DAGs
+Now you can trigger the Airflow DAGs from the web interface.
+
 # Useful Kafka commands
 
 ## Topic management
