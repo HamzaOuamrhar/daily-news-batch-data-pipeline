@@ -1529,7 +1529,7 @@ async def scrape_twitter(username: str, max_tweets: int = 100, max_retweets: int
         os.makedirs(scraped_profiles_dir, exist_ok=True)
         json_path = os.path.join(scraped_profiles_dir, f"{username}.json")
         with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
+            json.dump(result['tweets'], f, ensure_ascii=False, indent=2)
         print(f"Scraped profile saved to {json_path}")
     except Exception as e:
         print(f"Error saving scraped profile: {str(e)}")

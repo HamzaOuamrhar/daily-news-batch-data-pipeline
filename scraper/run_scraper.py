@@ -44,13 +44,50 @@ async def test_scraper(username, max_tweets=5, stop_date=None):
         traceback.print_exc()
         return False
 
+async def scrape_multiple_users(usernames, max_tweets=5, stop_date=None):
+    """Scrape multiple Twitter users"""
+    results = {}
+    total_users = len(usernames)
+    
+    for i, username in enumerate(usernames, 1):
+        print(f"\n{'='*60}")
+        print(f"Processing user {i}/{total_users}: @{username}")
+        print(f"{'='*60}")
+        
+        success = await test_scraper(username, max_tweets, stop_date)
+        results[username] = success
+        
+        if i < total_users:
+            print(f"\nWaiting before next user...")
+            await asyncio.sleep(2)  # Add delay between users
+    
+    # Summary
+    print(f"\n{'='*60}")
+    print("SCRAPING SUMMARY")
+    print(f"{'='*60}")
+    successful = sum(1 for success in results.values() if success)
+    print(f"Total users processed: {total_users}")
+    print(f"Successful: {successful}")
+    print(f"Failed: {total_users - successful}")
+    
+    for username, success in results.items():
+        status = "✓" if success else "✗"
+        print(f"{status} @{username}")
+    
+    return results
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Test Twitter scraper with specified username - only scrapes tweets')
-    parser.add_argument('username', help='Twitter username to scrape (without @)')
-    parser.add_argument('--max-tweets', type=int, default=5, help='Maximum number of tweets to scrape (default: 5)')
+    parser = argparse.ArgumentParser(description='Twitter scraper for news sources - scrapes predefined list of news accounts')
+    parser.add_argument('--max-tweets', type=int, default=5, help='Maximum number of tweets to scrape per user (default: 5)')
     parser.add_argument('--stop-date', type=str, help='Stop when finding tweets from this date (format: YYYY-MM-DD, e.g., 2024-01-15)')
     
     args = parser.parse_args()
+    
+    # Default list of news sources
+    usernames = ['BBCWorld', 'ansa_english', 'nytimes', 'AJEnglish', 'AP', 'WSJ']
+    print("Scraping news sources:")
+    for username in usernames:
+        print(f"  @{username}")
     
     stop_date = None
     if args.stop_date:
@@ -61,13 +98,18 @@ if __name__ == "__main__":
             print("Error: Invalid date format. Please use YYYY-MM-DD format (e.g., 2024-01-15)")
             sys.exit(1)
     
-    success = asyncio.run(test_scraper(
-        username=args.username,
+    # Multiple users scraping
+    print(f"\nStarting scraping for {len(usernames)} users...")
+    results = asyncio.run(scrape_multiple_users(
+        usernames=usernames,
         max_tweets=args.max_tweets,
         stop_date=stop_date
     ))
-    if success:
-        print("\nTest passed - scraper appears to be working!")
-    else:
-        print("\nTest failed - please check the errors above")
+    
+    # Check if any failed
+    failed_count = sum(1 for success in results.values() if not success)
+    if failed_count > 0:
+        print(f"\n{failed_count} user(s) failed to scrape")
         sys.exit(1)
+    else:
+        print("\nAll users scraped successfully!")

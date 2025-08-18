@@ -11,6 +11,7 @@ from airflow.operators.bash import BashOperator
 import pandas as pd
 import psycopg2
 from sqlalchemy import create_engine
+import glob
 
 
 default_args = {
@@ -119,13 +120,41 @@ def backup_news():
     else:
         backup_data = []
 
-
     daily_news = daily_data.get('articles', [])
 
     backup_data.extend(daily_news)
 
     with open('logs/news-backup.json', 'w') as f:
         json.dump(backup_data, f, indent=4)
+
+def merge_tweets():
+    exclude_files = ['tweets/tweets.json', 'tweets/tweets-backup.json']
+    news_targets = [
+        f for f in glob.glob("tweets/*.json")
+        if f not in exclude_files
+    ]
+
+    all_tweets = []
+
+    for target in news_targets:
+        with open(target, 'r', encoding='utf-8') as f:
+            tweets = json.load(f)
+            all_tweets.extend(tweets)
+    
+    with open('tweets/tweets.json', 'w', encoding='utf-8') as f:
+        json.dump(all_tweets, f, ensure_ascii=False, indent=2)
+
+    if os.path.exists('tweets/tweets-backup.json'):
+        with open('tweets/tweets-backup.json', 'r') as f:
+            backup_data = json.load(f)
+    else:
+        backup_data = []
+
+    backup_data.extend(all_tweets)
+    with open('tweets/tweets-backup.json', 'w') as f:
+        json.dump(backup_data, f, indent=2)
+
+    
 
 with DAG(
     'fetch-and-produce-news',
@@ -153,7 +182,12 @@ with DAG(
 
     scrap_tweets = BashOperator(
         task_id='scrap_tweets',
-        bash_command='docker exec scraper python3 scraper/run_scraper.py BBCWorld --max-tweets 10'
+        bash_command='docker exec scraper python3 scraper/run_scraper.py --max-tweets 2'
+    )
+
+    merge_tweets = PythonOperator(
+        task_id='merge_tweets',
+        python_callable=merge_tweets
     )
 
     # task_spark_batch = BashOperator(
@@ -166,4 +200,4 @@ with DAG(
     #     python_callable=create_dataset
     # )
 
-    task_fetch_news >> task_backup_news >> scrap_tweets
+    task_fetch_news >> task_backup_news >> scrap_tweets >> merge_tweets
