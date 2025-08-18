@@ -94,7 +94,7 @@ def create_dataset():
     df.to_csv(output_csv, index=False)
 
 
-def produce_to_kafka():
+def produce_news_to_kafka():
     kafka_conf = {
         'bootstrap.servers': 'kafka:9092'
     }
@@ -106,6 +106,21 @@ def produce_to_kafka():
 
     for article in data.get("articles", []):
         producer.produce(topic, json.dumps(article).encode('utf-8'))
+        producer.poll(0)
+    producer.flush()
+
+def produce_tweets_to_kafka():
+    kafka_conf = {
+        'bootstrap.servers': 'kafka:9092'
+    }
+    producer = Producer(kafka_conf)
+    topic = 'tweets-topic'
+
+    with open('tweets/tweets.json') as f:
+        data = json.load(f)
+
+    for tweet in data:
+        producer.produce(topic, json.dumps(tweet).encode('utf-8'))
         producer.poll(0)
     producer.flush()
 
@@ -175,19 +190,24 @@ with DAG(
         python_callable=backup_news
     )
 
-    # task_produce_news = PythonOperator(
-    #     task_id='produce_to_kafka',
-    #     python_callable=produce_to_kafka
-    # )
-
     scrap_tweets = BashOperator(
         task_id='scrap_tweets',
         bash_command='docker exec scraper python3 scraper/run_scraper.py --max-tweets 2'
     )
 
-    merge_tweets = PythonOperator(
+    task_merge_tweets = PythonOperator(
         task_id='merge_tweets',
         python_callable=merge_tweets
+    )
+
+    task_produce_news = PythonOperator(
+        task_id='produce_news_to_kafka',
+        python_callable=produce_news_to_kafka
+    )
+
+    task_produce_tweets = PythonOperator(
+        task_id='produce_tweets_to_kafka',
+        python_callable=produce_tweets_to_kafka
     )
 
     # task_spark_batch = BashOperator(
@@ -200,4 +220,5 @@ with DAG(
     #     python_callable=create_dataset
     # )
 
-    task_fetch_news >> task_backup_news >> scrap_tweets >> merge_tweets
+    task_fetch_news >> task_backup_news >> scrap_tweets >> task_merge_tweets >> task_produce_news >> task_produce_tweets
+
