@@ -309,6 +309,14 @@ services:
       - grafana_data:/var/lib/grafana
     restart: always
 
+  scraper:
+    image: scraper/self
+    container_name: scraper
+    build:
+      context: scraper
+      dockerfile: Dockerfile
+    volumes:
+      - ./scraper:/scraper
 
 volumes:
   postgres-db-volume:

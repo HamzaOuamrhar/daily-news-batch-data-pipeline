@@ -30,4 +30,13 @@ psql:
 build:
 	docker compose up -d --build
 
+su:
+	docker compose up -d scraper 
+
+sd:
+	docker compose down scraper
+
+s:
+	docker exec -it scraper bash
+
 .PHONY: all re down clean airflow kafka spark psql

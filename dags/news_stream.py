@@ -146,19 +146,24 @@ with DAG(
         python_callable=backup_news
     )
 
-    task_produce_news = PythonOperator(
-        task_id='produce_to_kafka',
-        python_callable=produce_to_kafka
+    # task_produce_news = PythonOperator(
+    #     task_id='produce_to_kafka',
+    #     python_callable=produce_to_kafka
+    # )
+
+    scrap_tweets = BashOperator(
+        task_id='scrap_tweets',
+        bash_command='docker exec scraper python3 scraper/run_scraper.py BBCWorld --max-tweets 10'
     )
 
-    task_spark_batch = BashOperator(
-        task_id='spark_kafka_to_postgres',
-        bash_command='docker exec spark-master spark-submit --packages org.postgresql:postgresql:42.7.3,org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1 /opt/spark-apps/kafka_batch_to_postgres.py'
-    )
+    # task_spark_batch = BashOperator(
+    #     task_id='spark_kafka_to_postgres',
+    #     bash_command='docker exec spark-master spark-submit --packages org.postgresql:postgresql:42.7.3,org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1 /opt/spark-apps/kafka_batch_to_postgres.py'
+    # )
 
-    task_create_dataset = PythonOperator(
-        task_id='create_dataset',
-        python_callable=create_dataset
-    )
+    # task_create_dataset = PythonOperator(
+    #     task_id='create_dataset',
+    #     python_callable=create_dataset
+    # )
 
-    task_fetch_news >> task_backup_news >> task_produce_news >> task_spark_batch >> task_create_dataset
+    task_fetch_news >> task_backup_news >> scrap_tweets

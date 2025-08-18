@@ -8,3 +8,5 @@ plugins/__pycache__
 dags/__pycache__
 architecture.tldr
 todo
+scraper/app/__pycache__
+scraper/scraped_profiles
