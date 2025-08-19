@@ -20,6 +20,12 @@ news_schema = (
     .add("content", StringType())
 )
 
+tweets_schema = (
+    StructType()
+    .add("tweet_content", StringType())
+    .add("tweet_date", StringType())
+)
+
 def extract_entities(text):
     if text is None:
         return []
@@ -45,8 +51,19 @@ df = spark.read \
     .option("endingOffsets", "latest") \
     .load()
 
+df2 = spark.read \
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", "kafka:9092") \
+    .option("subscribe", "tweets-topic") \
+    .option("startingOffsets", "earliest") \
+    .option("endingOffsets", "latest") \
+    .load()
+
 news_df = df.selectExpr("CAST(value AS STRING) as json_str")
 parsed_df = news_df.select(from_json(col("json_str"), news_schema).alias("data")).select("data.*")
+
+tweets_df = df2.selectExpr("CAST(value AS STRING) as json_str")
+parsed_df2 = tweets_df.select(from_json(col("json_str"), tweets_schema).alias("data")).select("data.*")
 
 parsed_df = parsed_df.withColumn("title", trim(col("title")))
 parsed_df = parsed_df.withColumn("description", trim(col("description")))
@@ -55,6 +72,7 @@ parsed_df = parsed_df.withColumn("content", trim(col("content")))
 parsed_df = parsed_df.withColumn("full_text", concat_ws(" ", col("title"), col("description"), col('content')))
 
 entities_df = parsed_df.withColumn("entities", extract_entities_udf(col("full_text")))
+entities_df2 = parsed_df2.withColumn("entities", extract_entities_udf(col("tweet_content")))
 
 flattened_entities_df = entities_df.select(
     to_date(col("publishedAt")).alias("published_date"),
@@ -65,7 +83,18 @@ flattened_entities_df = entities_df.select(
     col("published_date")
 )
 
-flattened_entities_df.write \
+flattened_entities_df2 = entities_df2.select(
+    to_date(col("tweet_date")).alias("published_date"),
+    explode(col("entities")).alias("entity_struct")
+).select(
+    lower(col("entity_struct.entity")).alias("entity_text"),
+    col("entity_struct.type").alias("entity_type"),
+    col("published_date")
+)
+
+flattened_entities_merged = flattened_entities_df.union(flattened_entities_df2)
+
+flattened_entities_merged.write \
     .format("jdbc") \
     .option("url", pg_url) \
     .option("dbtable", pg_table) \
@@ -75,10 +104,14 @@ flattened_entities_df.write \
     .mode("append") \
     .save()
 
-dates_df = entities_df.select(to_date(col("publishedAt")).alias("the_date")).distinct()
+dates_df = entities_df.select(to_date(col("publishedAt")).alias("the_date"))
+
+dates_df2 = entities_df2.select(to_date(col("tweet_date")).alias("the_date"))
+
+merged_dates = dates_df.union(dates_df2).distinct()
 
 try:
-    dates_df.write \
+    merged_dates.write \
         .format("jdbc") \
         .option("url", pg_url) \
         .option("dbtable", "dates") \

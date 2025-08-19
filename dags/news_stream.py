@@ -34,7 +34,7 @@ def fetch_news():
     params = {
         'country': 'us',
         'apiKey': api_key,
-        'pageSize': 100,
+        'pageSize': 10,
     }
 
     response = requests.get(url, params=params)
@@ -153,7 +153,10 @@ def merge_tweets():
 
     for target in news_targets:
         with open(target, 'r', encoding='utf-8') as f:
-            tweets = json.load(f)
+            content = f.read().strip()
+            if not content:
+                continue
+            tweets = json.loads(content)
             all_tweets.extend(tweets)
     
     with open('tweets/tweets.json', 'w', encoding='utf-8') as f:
@@ -192,7 +195,7 @@ with DAG(
 
     scrap_tweets = BashOperator(
         task_id='scrap_tweets',
-        bash_command='docker exec scraper python3 scraper/run_scraper.py --max-tweets 2'
+        bash_command='docker exec scraper python3 scraper/run_scraper.py --max-tweets 30 --stop-date 2025-08-18'
     )
 
     task_merge_tweets = PythonOperator(
@@ -210,15 +213,15 @@ with DAG(
         python_callable=produce_tweets_to_kafka
     )
 
-    # task_spark_batch = BashOperator(
-    #     task_id='spark_kafka_to_postgres',
-    #     bash_command='docker exec spark-master spark-submit --packages org.postgresql:postgresql:42.7.3,org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1 /opt/spark-apps/kafka_batch_to_postgres.py'
-    # )
+    task_spark_batch = BashOperator(
+        task_id='spark_kafka_to_postgres',
+        bash_command='docker exec spark-master spark-submit --packages org.postgresql:postgresql:42.7.3,org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1 /opt/spark-apps/kafka_batch_to_postgres.py'
+    )
 
-    # task_create_dataset = PythonOperator(
-    #     task_id='create_dataset',
-    #     python_callable=create_dataset
-    # )
+    task_create_dataset = PythonOperator(
+        task_id='create_dataset',
+        python_callable=create_dataset
+    )
 
-    task_fetch_news >> task_backup_news >> scrap_tweets >> task_merge_tweets >> task_produce_news >> task_produce_tweets
+    task_fetch_news >> task_backup_news >> scrap_tweets >> task_merge_tweets >> task_produce_news >> task_produce_tweets >> task_spark_batch >> task_create_dataset
 
