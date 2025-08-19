@@ -2,8 +2,20 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBRegressor
+import os
+from sqlalchemy import create_engine
 
-df = pd.read_csv("logs/entity_daily_counts.csv", parse_dates=["published_date"])
+
+pg_database = os.environ['PG_DATABASE']
+pg_user = os.environ['PG_USER']
+pg_password = os.environ['PG_PASSWORD']
+pg_table = 'trends'
+engine = create_engine(f'postgresql://{pg_user}:{pg_password}@postgres:5432/{pg_database}')
+
+
+df = pd.read_csv('/opt/airflow/logs/entity_daily_counts.csv', parse_dates=["published_date"])
+
+df = df.rename(columns={"entity_text": "group_id", "count_mentions": "target"})
 
 N_LAGS = 5
 for lag in range(1, N_LAGS + 1):
@@ -39,8 +51,14 @@ for keyword in df["group_id"].unique():
     feature_row["dayofweek"] = next_date.dayofweek
     feature_row["dayofmonth"] = next_date.day
     feature_df = pd.DataFrame([feature_row])
-    pred = max(0, model.predict(feature_df)[0])
+    pred = max(0, round(model.predict(feature_df)[0]))
     predictions.append({"group_id": keyword, "date": next_date, "predicted_count": pred})
 
 pred_df = pd.DataFrame(predictions)
+
+try:
+    pred_df.to_sql(pg_table, engine, if_exists='append', index=False)
+except Exception as e:
+    print(e)
+
 print(pred_df.head(10))

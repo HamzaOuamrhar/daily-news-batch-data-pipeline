@@ -118,7 +118,7 @@ try:
         .option("user", pg_user) \
         .option("password", pg_password) \
         .option("driver", "org.postgresql.Driver") \
-        .mode("append") \
+        .mode("overwrite") \
         .save()
 except Exception as e:
     if "duplicate key" not in str(e).lower():

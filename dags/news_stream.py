@@ -223,5 +223,9 @@ with DAG(
         python_callable=create_dataset
     )
 
-    task_fetch_news >> task_backup_news >> scrap_tweets >> task_merge_tweets >> task_produce_news >> task_produce_tweets >> task_spark_batch >> task_create_dataset
+    task_train_model = BashOperator(
+        task_id='train_model',
+        bash_command='python3 /opt/airflow/plugins/train_model.py'
+    )
 
+    task_fetch_news >> task_backup_news >> scrap_tweets >> task_merge_tweets >> task_produce_news >> task_produce_tweets >> task_spark_batch >> task_create_dataset >> task_train_model
