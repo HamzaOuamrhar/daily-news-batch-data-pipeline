@@ -3,8 +3,49 @@ from pyspark.sql.functions import from_json, col, explode, udf, concat_ws, trim,
 from pyspark.sql.types import StructType, StringType, ArrayType, StructType, StructField
 import os
 import spacy
+import json
+from pathlib import Path
 
 nlp = spacy.load("en_core_web_sm")
+
+OFFSET_FILE_PATH = "/opt/bitnami/spark/kafka_offsets.json"
+
+def load_offsets():
+    if Path(OFFSET_FILE_PATH).exists():
+        try:
+            with open(OFFSET_FILE_PATH, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            pass
+    return {
+        "news-topic": {"0": 0},
+        "tweets-topic": {"0": 0}
+    }
+
+def save_offsets(offsets_dict):
+    os.makedirs(os.path.dirname(OFFSET_FILE_PATH), exist_ok=True)
+    with open(OFFSET_FILE_PATH, 'w') as f:
+        json.dump(offsets_dict, f, indent=2)
+
+def extract_final_offsets(df):
+    try:
+        offset_df = df.select("topic", "partition", "offset")
+        offsets_collected = offset_df.collect()
+        
+        final_offsets = {}
+        for row in offsets_collected:
+            topic = row["topic"]
+            partition = str(row["partition"])
+            offset = row["offset"] + 1
+            
+            if topic not in final_offsets:
+                final_offsets[topic] = {}
+            final_offsets[topic][partition] = offset
+        
+        return final_offsets
+    except Exception as e:
+        print(f"Error extracting offsets: {e}")
+        return None
 
 pg_url = os.environ['PG_URL']
 pg_user = os.environ['PG_USER']
@@ -41,13 +82,24 @@ extract_entities_udf = udf(extract_entities, entity_schema)
 
 spark = SparkSession.builder \
     .appName("news") \
+    .master('spark://spark-master:7077') \
     .getOrCreate()
+
+saved_offsets = load_offsets()
+
+print(f"Loaded offsets: {saved_offsets}")
+
+news_starting_offsets = json.dumps({"news-topic": saved_offsets.get("news-topic", {"0": 0})})
+tweets_starting_offsets = json.dumps({"tweets-topic": saved_offsets.get("tweets-topic", {"0": 0})})
+
+print(f"News topic starting from: {news_starting_offsets}")
+print(f"Tweets topic starting from: {tweets_starting_offsets}")
 
 df = spark.read \
     .format("kafka") \
     .option("kafka.bootstrap.servers", "kafka:9092") \
     .option("subscribe", "news-topic") \
-    .option("startingOffsets", "earliest") \
+    .option("startingOffsets", news_starting_offsets) \
     .option("endingOffsets", "latest") \
     .load()
 
@@ -55,7 +107,7 @@ df2 = spark.read \
     .format("kafka") \
     .option("kafka.bootstrap.servers", "kafka:9092") \
     .option("subscribe", "tweets-topic") \
-    .option("startingOffsets", "earliest") \
+    .option("startingOffsets", tweets_starting_offsets) \
     .option("endingOffsets", "latest") \
     .load()
 
@@ -123,5 +175,40 @@ try:
 except Exception as e:
     if "duplicate key" not in str(e).lower():
         raise e
+
+final_offsets = {}
+
+try:
+    if df.count() > 0:
+        news_offsets = extract_final_offsets(df)
+        if news_offsets:
+            final_offsets.update(news_offsets)
+            print(f"Extracted news offsets: {news_offsets}")
+    else:
+        print("No new messages in news-topic")
+except Exception as e:
+    print(f"Error processing news topic offsets: {e}")
+
+try:
+    if df2.count() > 0:
+        tweets_offsets = extract_final_offsets(df2)
+        if tweets_offsets:
+            final_offsets.update(tweets_offsets)
+            print(f"Extracted tweets offsets: {tweets_offsets}")
+    else:
+        print("No new messages in tweets-topic")
+except Exception as e:
+    print(f"Error processing tweets topic offsets: {e}")
+
+if final_offsets:
+    try:
+        current_offsets = load_offsets()
+        current_offsets.update(final_offsets)
+        save_offsets(current_offsets)
+        print(f"Successfully saved offsets: {current_offsets}")
+    except Exception as e:
+        print(f"Error saving offsets: {e}")
+else:
+    print("No new offsets to save")
 
 spark.stop()
