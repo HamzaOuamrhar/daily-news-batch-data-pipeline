@@ -60,33 +60,22 @@ def create_dataset():
     engine = create_engine(pg_url)
 
     query = r"""
-        WITH entities AS (
-            SELECT DISTINCT entity_text FROM trending_entities WHERE entity_type in ('EVENT', 'FAC', 'GPE', 'LOC', 'ORG', 'PERSON', 'PRODUCT', 'WORK_OF_ART')
-        ),
-        date_range AS (
-            SELECT the_date::date AS published_date
-            FROM dates
-            WHERE the_date >= '2025-07-20'
-        ),
-        grid AS (
-            SELECT e.entity_text, d.published_date
-            FROM entities e CROSS JOIN date_range d
-        ),
-        counts AS (
-            SELECT entity_text, DATE(published_date) AS published_date, COUNT(*) AS count_mentions
-            FROM trending_entities
-            WHERE published_date >= '2025-07-20'
-            AND entity_type in ('EVENT', 'FAC', 'GPE', 'LOC', 'ORG', 'PERSON', 'PRODUCT', 'WORK_OF_ART')
-            GROUP BY entity_text, DATE(published_date)
+        with entities as (
+            SELECT DISTINCT entity_text FROM trending_entities 
+            where entity_type in ('EVENT', 'FAC', 'GPE', 'LOC', 'ORG', 'PERSON', 'PRODUCT', 'WORK_OF_ART')
         )
-        SELECT 
-            g.entity_text,
-            g.published_date,
-            COALESCE(c.count_mentions, 0) AS count_mentions
-        FROM grid g
-        LEFT JOIN counts c
-            ON g.entity_text = c.entity_text AND g.published_date = c.published_date
-        ORDER BY g.entity_text, g.published_date
+            SELECT 
+                entities.entity_text as entity_text,
+                d.the_date as published_date,
+                COALESCE(COUNT(t.entity_text), 0) AS count_mentions
+            FROM dates d
+            CROSS JOIN entities
+            LEFT JOIN trending_entities t 
+                ON d.the_date = t.published_date
+                AND entities.entity_text = t.entity_text
+            where d.the_date >= '2025-08-10' and d.the_date <= '2025-08-19'
+            GROUP BY entities.entity_text, d.the_date
+            ORDER BY entities.entity_text, d.the_date;
     """
 
     df = pd.read_sql(query, engine)
