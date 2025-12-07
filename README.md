@@ -146,7 +146,7 @@ This will start:
 | Spark Master | http://localhost:8081 | - |
 | Grafana | http://localhost:3000 | admin / admin |
 
-**7. Trigger the pipeline**
+**5. Trigger the pipeline**
 
 - Navigate to Airflow UI (http://localhost:8080)
 - Enable the `fetch-and-produce-news` DAG
