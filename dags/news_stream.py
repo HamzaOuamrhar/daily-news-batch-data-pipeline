@@ -73,7 +73,7 @@ def create_dataset():
             LEFT JOIN trending_entities t 
                 ON d.the_date = t.published_date
                 AND entities.entity_text = t.entity_text
-            where d.the_date >= '2025-08-10' and d.the_date <= '2025-08-19'
+            where d.the_date >= '2025-08-10' and d.the_date <= '2025-12-07'
             GROUP BY entities.entity_text, d.the_date
             ORDER BY entities.entity_text, d.the_date;
     """
@@ -184,7 +184,7 @@ with DAG(
 
     scrap_tweets = BashOperator(
         task_id='scrap_tweets',
-        bash_command='docker exec scraper python3 scraper/run_scraper.py --max-tweets 30 --stop-date 2025-08-18'
+        bash_command='docker exec scraper python3 scraper/run_scraper.py --max-tweets 5 --stop-date 2025-08-18'
     )
 
     task_merge_tweets = PythonOperator(
@@ -204,7 +204,7 @@ with DAG(
 
     task_spark_batch = BashOperator(
         task_id='spark_kafka_to_postgres',
-        bash_command='docker exec spark-master spark-submit --packages org.postgresql:postgresql:42.7.3,org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1 /opt/spark-apps/kafka_batch_to_postgres.py'
+        bash_command='docker exec spark-master /opt/spark/bin/spark-submit --packages org.postgresql:postgresql:42.7.3,org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.kafka:kafka-clients:3.5.1 /opt/spark-apps/kafka_batch_to_postgres.py'
     )
 
     task_create_dataset = PythonOperator(

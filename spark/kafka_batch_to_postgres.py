@@ -8,7 +8,7 @@ from pathlib import Path
 
 nlp = spacy.load("en_core_web_sm")
 
-OFFSET_FILE_PATH = "/opt/bitnami/spark/kafka_offsets.json"
+OFFSET_FILE_PATH = "/opt/spark-apps/kafka_offsets.json"
 
 def load_offsets():
     if Path(OFFSET_FILE_PATH).exists():
